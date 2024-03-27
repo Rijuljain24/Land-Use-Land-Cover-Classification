@@ -1,0 +1,45 @@
+Map.addLayer(AOI)
+var selection = L8.filterBounds(ROI)
+.filterDate("2017-05-01","2018-01-01")
+.filterMetadata("CLOUD_COVER", "less_than", 1)
+.mean()
+.clip(ROI);  
+
+Map.addLayer(selection, {bands:["B4","B3","B2",]});
+
+//Merging the training points
+var training_points = water.merge(vegetation)
+.merge(urban_area)
+.merge(barren_land)
+.merge(agricultural_land);
+
+//Printing training data to console
+print(training_points);
+var training_data = selection.sampleRegions({
+                    collection:training_points,
+                    properties: ['LC'],
+                    scale: 30})
+print(training_data);
+
+var classifier = ee.Classifier.smileCart()
+var classifier = classifier.train({features: training_data,
+classProperty: "LC",
+inputProperties: ["B1","B2","B3","B4","B5","B6","B7","B10","B11"]});
+
+var classified_image = selection.classify(classifier); 
+
+Map.addLayer(classified_image, {min: 0, max: 4, palette: ['blue','green'
+,'red','brown','yellow']},
+'classified image');
+
+print(classifier.confusionMatrix()); 
+
+//Export
+Export.image.toDrive({
+  image: classified_image,
+  description: 'smileCart_Classified_map',
+  region: ROI,
+  scale: 20,
+  fileFormat: 'GeoTIFF',
+  maxPixels: 1e9,
+});
